@@ -1,31 +1,42 @@
-# ai_platform_trainer/entities/player_play.py
+# file: ai_platform_trainer/entities/player_play.py
 
 import pygame
 import logging
 import random
 from typing import List
+from ai_platform_trainer.entities.player import Player
 from ai_platform_trainer.entities.missile import Missile
 
 
-class PlayerPlay:
+class PlayerPlay(Player):
+    """
+    Player class for 'play' mode. Inherits from base Player and adds keyboard input logic.
+    """
+
     def __init__(self, screen_width: int, screen_height: int):
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.size = 50
-        self.color = (0, 0, 139)  # Dark Blue
+        super().__init__(screen_width, screen_height, color=(0, 0, 139))
+        # If you want a specific starting position for Play mode:
         self.position = {"x": screen_width // 4, "y": screen_height // 2}
-        self.step = 5
-        self.missiles: List[Missile] = []
+        logging.info("PlayerPlay initialized at position=%s", self.position)
 
     def reset(self) -> None:
+        """
+        Override base reset to re-center at (screen_width//4, screen_height//2) if you want.
+        Or call super().reset() if you just want the center.
+        """
         self.position = {"x": self.screen_width // 4, "y": self.screen_height // 2}
         self.missiles.clear()
-        logging.info("Player has been reset to the initial position.")
+        logging.info(
+            "PlayerPlay has been reset to the initial position (1/4 across screen)."
+        )
 
     def handle_input(self) -> bool:
+        """
+        Check keyboard for WASD/arrow keys. Return True if continuing,
+        or handle a special key for 'quit' if desired.
+        """
         keys = pygame.key.get_pressed()
 
-        # WASD / Arrow key movement
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.position["x"] -= self.step
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
@@ -48,16 +59,17 @@ class PlayerPlay:
         return True
 
     def shoot_missile(self) -> None:
-        # Shoot only if no missile is active, or allow multiple—up to you
+        """
+        Example override to keep the random-lifespan logic from your original code.
+        We also limit to one missile at a time, as in your previous approach.
+        """
         if len(self.missiles) == 0:
             missile_start_x = self.position["x"] + self.size // 2
             missile_start_y = self.position["y"] + self.size // 2
 
             birth_time = pygame.time.get_ticks()
-            # Random lifespan from 0.5–1.5s to match training
             random_lifespan = random.randint(500, 1500)
 
-            # Create a new missile object with random lifespan
             missile = Missile(
                 x=missile_start_x,
                 y=missile_start_y,
@@ -70,35 +82,3 @@ class PlayerPlay:
             logging.info("Play mode: Shot a missile with random lifespan.")
         else:
             logging.debug("Attempted to shoot missile, but one is already active.")
-
-    def update_missiles(self) -> None:
-        current_time = pygame.time.get_ticks()
-        for missile in self.missiles[:]:
-            missile.update()
-
-            # Remove if it expires or goes off-screen
-            if current_time - missile.birth_time >= missile.lifespan:
-                self.missiles.remove(missile)
-                logging.debug("Missile removed for exceeding lifespan.")
-                continue
-
-            if (
-                missile.pos["x"] < 0
-                or missile.pos["x"] > self.screen_width
-                or missile.pos["y"] < 0
-                or missile.pos["y"] > self.screen_height
-            ):
-                self.missiles.remove(missile)
-                logging.debug("Missile removed for going off-screen.")
-
-    def draw_missiles(self, screen: pygame.Surface) -> None:
-        for missile in self.missiles:
-            missile.draw(screen)
-
-    def draw(self, screen: pygame.Surface) -> None:
-        pygame.draw.rect(
-            screen,
-            self.color,
-            (self.position["x"], self.position["y"], self.size, self.size),
-        )
-        self.draw_missiles(screen)

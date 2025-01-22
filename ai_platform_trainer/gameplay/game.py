@@ -10,7 +10,7 @@ from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_training import PlayerTraining
-from ai_platform_trainer.entities.enemy_training import EnemyTrain
+from ai_platform_trainer.entities.enemy_training import EnemyTraining
 from ai_platform_trainer.ai_model.train_missile_model import SimpleMissileModel
 
 from ai_platform_trainer.gameplay.env.pixel_pursuit_env import PixelPursuitEnv
@@ -138,7 +138,7 @@ class Game:
         # Create player, enemy
         if mode == "train":
             self.player = PlayerTraining(self.screen_width, self.screen_height)
-            self.enemy = EnemyTrain(self.screen_width, self.screen_height)
+            self.enemy = EnemyTraining(self.screen_width, self.screen_height)
         else:
             self.player, self.enemy = self._init_play_mode()
 
