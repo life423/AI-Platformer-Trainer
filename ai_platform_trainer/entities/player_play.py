@@ -37,24 +37,24 @@ class PlayerPlay(Player):
         """
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.position["x"] -= self.step
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.position["x"] += self.step
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.position["y"] -= self.step
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.position["y"] += self.step
+        # if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        #     self.position["x"] -= self.step
+        # if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        #     self.position["x"] += self.step
+        # if keys[pygame.K_UP] or keys[pygame.K_w]:
+        #     self.position["y"] -= self.step
+        # if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+        #     self.position["y"] += self.step
 
-        # Wrap-around logic
-        if self.position["x"] < -self.size:
-            self.position["x"] = self.screen_width
-        elif self.position["x"] > self.screen_width:
-            self.position["x"] = -self.size
-        if self.position["y"] < -self.size:
-            self.position["y"] = self.screen_height
-        elif self.position["y"] > self.screen_height:
-            self.position["y"] = -self.size
+        # # Wrap-around logic
+        # if self.position["x"] < -self.size:
+        #     self.position["x"] = self.screen_width
+        # elif self.position["x"] > self.screen_width:
+        #     self.position["x"] = -self.size
+        # if self.position["y"] < -self.size:
+        #     self.position["y"] = self.screen_height
+        # elif self.position["y"] > self.screen_height:
+        #     self.position["y"] = -self.size
 
         return True
 
