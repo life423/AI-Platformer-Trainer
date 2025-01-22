@@ -1,4 +1,3 @@
-import pygame
 import random
 import math
 import logging
@@ -96,13 +95,17 @@ class EnemyTrain(Enemy):
             dy = random.choice([-1, 1])
             self.diagonal_direction = (dx, dy)
 
-    def update_movement(self, player_x, player_y, player_speed):
+    def update_movement(
+        self, player_x: float, player_y: float, player_speed: float, current_time: int
+    ):
         """
         Primary movement logic, choosing from the current pattern:
         random_walk, circle_move, diagonal_move, or pursue.
+        This now accepts 'current_time' as the 4th argument, matching the
+        call from pixel_pursuit_env.py.
         """
         if self.forced_escape_timer > 0:
-            # Forced escape mode takes precedence over pattern-based movement
+            # Forced escape mode takes precedence
             self.forced_escape_timer -= 1
             self.apply_forced_escape_movement()
         else:
@@ -129,37 +132,29 @@ class EnemyTrain(Enemy):
             self.size,
         )
 
+        # If you ever need 'current_time' to do time-based logic, do it here:
+        # Example: random special move after X ms
+        # if current_time % 2000 < 30:
+        #     self.switch_pattern()
+
     def pursue_pattern(self, player_x: float, player_y: float, player_speed: float):
-        """
-        Pursue the player by moving directly toward the player's position.
-        The movement speed is based on the player's speed and a pursuit factor.
-        """
         dx = player_x - self.pos["x"]
         dy = player_y - self.pos["y"]
         dist = math.hypot(dx, dy)
-
         if dist > 0:
-            # Normalize dx, dy
             dx /= dist
             dy /= dist
-
-            # Move at a fraction of the player's speed to avoid immediate collisions
             speed = player_speed * self.PURSUIT_SPEED_FACTOR
             self.pos["x"] += dx * speed
             self.pos["y"] += dy * speed
 
     def initiate_forced_escape(self):
-        """
-        Determine shortest distance to a wall and move away from it
-        to prevent stalling near edges. Overrides normal patterns.
-        """
         dist_left = self.pos["x"]
         dist_right = (self.screen_width - self.size) - self.pos["x"]
         dist_top = self.pos["y"]
         dist_bottom = (self.screen_height - self.size) - self.pos["y"]
 
         min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
-
         if min_dist == dist_left:
             base_angle = 0.0
         elif min_dist == dist_right:
@@ -179,18 +174,12 @@ class EnemyTrain(Enemy):
         self.state_timer = self.forced_escape_timer * 2
 
     def apply_forced_escape_movement(self):
-        """
-        Execute forced escape movement to unstick from a wall.
-        """
         dx = math.cos(self.forced_angle) * self.forced_speed
         dy = math.sin(self.forced_angle) * self.forced_speed
         self.pos["x"] += dx
         self.pos["y"] += dy
 
     def is_hugging_wall(self) -> bool:
-        """
-        Check if the enemy is near the wall boundary within WALL_MARGIN.
-        """
         return (
             self.pos["x"] < self.WALL_MARGIN
             or self.pos["x"] > (self.screen_width - self.size - self.WALL_MARGIN)
@@ -199,9 +188,6 @@ class EnemyTrain(Enemy):
         )
 
     def random_walk_pattern(self):
-        """
-        Move in a random direction for a random duration, then pick another angle.
-        """
         if self.random_walk_timer <= 0:
             self.random_walk_angle = random.uniform(0, 2 * math.pi)
             self.random_walk_speed = self.base_speed * random.uniform(0.5, 2.0)
@@ -215,9 +201,6 @@ class EnemyTrain(Enemy):
         self.pos["y"] += dy
 
     def circle_pattern(self):
-        """
-        Move in a circular trajectory around a center point.
-        """
         speed = self.base_speed
         angle_increment = 0.02 * (speed / self.base_speed)
         self.circle_angle += angle_increment
@@ -227,15 +210,11 @@ class EnemyTrain(Enemy):
         self.pos["x"] = self.circle_center[0] + dx
         self.pos["y"] = self.circle_center[1] + dy
 
-        # Occasionally alter circle radius
         if random.random() < 0.01:
             self.circle_radius += random.randint(-5, 5)
             self.circle_radius = max(20, min(200, self.circle_radius))
 
     def diagonal_pattern(self):
-        """
-        Move diagonally; occasionally randomize the diagonal angle.
-        """
         if random.random() < 0.05:
             angle = math.atan2(self.diagonal_direction[1], self.diagonal_direction[0])
             angle += random.uniform(-0.3, 0.3)
@@ -246,16 +225,9 @@ class EnemyTrain(Enemy):
         self.pos["y"] += self.diagonal_direction[1] * speed
 
     def hide(self):
-        """
-        Immediately hide EnemyTrain (no fade). Typically called upon collision.
-        """
         self.visible = False
         logging.info("EnemyTrain hidden due to collision.")
 
     def show(self, current_time: int = None):
-        """
-        Make EnemyTrain visible again (no fade) after a collision.
-        The current_time argument is optional and unused here.
-        """
         self.visible = True
         logging.info("EnemyTrain made visible again.")

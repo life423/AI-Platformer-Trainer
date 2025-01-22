@@ -3,8 +3,6 @@ import pygame
 import logging
 
 
-
-
 def handle_missile_collisions(player, enemy, respawn_callback):
     if not enemy.visible:
         return

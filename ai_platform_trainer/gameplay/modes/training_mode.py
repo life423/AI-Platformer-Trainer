@@ -1,162 +1,56 @@
-# FILE: ai_platform_trainer/gameplay/modes/training_mode.py
-
-import math
+# file: ai_platform_trainer/gameplay/modes/training_mode.py
 import logging
 import random
-import pygame
-from ai_platform_trainer.entities.missile import Missile
-from ai_platform_trainer.utils.helpers import wrap_position
-from ai_platform_trainer.gameplay.utils import compute_normalized_direction
 
+import math
 
 class TrainingMode:
+    """
+    Minimal bridging manager for 'train' mode:
+     - Possibly picks AI or random actions for the player/enemy.
+     - Calls env.step(action).
+     - Logs episodes or transitions.
+    """
+
     def __init__(self, game):
-        self.game = game
-        self.missile_cooldown = 0
-        self.missile_lifespan = {}
-        self.missile_sequences = {}
+        self.game = game  # main Game object
+        self.episode_reward = 0.0
+        self.episode_count = 0
 
     def update(self):
-        current_time = pygame.time.get_ticks()
+        """
+        Called each frame from Game when in 'train' mode.
+        1) Decide an action (dx, dy) from an AI policy or random.
+        2) env.step(action)
+        3) Aggregate rewards, check if done -> reset
+        """
+        # 1) Example: random action
+        dx, dy = self._random_action()
 
-        if self.game.enemy and self.game.player:
-            enemy_x = self.game.enemy.pos["x"]
-            enemy_y = self.game.enemy.pos["y"]
+        # 2) Step environment
+        obs, reward, done, info = self.game.env.step((dx, dy))
+        self.episode_reward += reward
 
-            # 1) Player & Enemy updates
-            self.game.player.update(enemy_x, enemy_y)
-            self.game.enemy.update_movement(
-                self.game.player.position["x"],
-                self.game.player.position["y"],
-                self.game.player.step,
+        logging.debug(f"[TrainingMode] obs={obs}, reward={reward}, done={done}")
+
+        # 3) If done, log episode and reset
+        if done:
+            self.episode_count += 1
+            logging.info(
+                f"Episode {self.episode_count} finished. Total reward={self.episode_reward:.2f}"
+            )
+            self.episode_reward = 0.0
+            self.game.env.reset(
+                self.game.player, self.game.enemy, data_logger=self.game.data_logger
             )
 
-            # 2) Missile cooldown & chance to fire
-            if self.missile_cooldown > 0:
-                self.missile_cooldown -= 1
-
-            if random.random() < getattr(self, "missile_fire_prob", 0.1):
-                if self.missile_cooldown <= 0 and len(self.game.player.missiles) == 0:
-                    self.game.player.shoot_missile(enemy_x, enemy_y)
-                    self.missile_cooldown = 120
-
-                    if self.game.player.missiles:
-                        missile = self.game.player.missiles[0]
-                        self.missile_lifespan[missile] = (
-                            missile.birth_time,
-                            missile.lifespan,
-                        )
-                        self.missile_sequences[missile] = []
-
-        # 3) Check missile collisions & lifespan
-        current_missiles = self.game.player.missiles[:]
-        for missile in current_missiles:
-            if missile in self.missile_lifespan:
-                birth_time, lifespan = self.missile_lifespan[missile]
-                if current_time - birth_time >= lifespan:
-                    self.finalize_missile_sequence(missile, success=False)
-                    self.game.player.missiles.remove(missile)
-                    del self.missile_lifespan[missile]
-                    logging.debug("Training mode: Missile removed (lifespan expiry).")
-                else:
-                    missile.update()
-
-                    # ----------------------
-                    # ENHANCED LOGGING SECTION
-                    # ----------------------
-                    if missile in self.missile_sequences:
-                        player_x = self.game.player.position["x"]
-                        player_y = self.game.player.position["y"]
-                        enemy_x = self.game.enemy.pos["x"]
-                        enemy_y = self.game.enemy.pos["y"]
-
-                        # Example distances
-                        dist_player_enemy = math.hypot(
-                            enemy_x - player_x, enemy_y - player_y
-                        )
-                        dist_missile_enemy = math.hypot(
-                            enemy_x - missile.pos["x"], enemy_y - missile.pos["y"]
-                        )
-
-                        # If you have vx, vy in your missile, you can compute an angle:
-                        # angle = math.atan2(missile.vy, missile.vx) if you store those in the missile.
-
-                        # This is an example, you might have your own model-based action
-                        missile_angle = 0.0
-                        missile_action = 0.0
-
-                        self.missile_sequences[missile].append(
-                            {
-                                "player_x": player_x,
-                                "player_y": player_y,
-                                "enemy_x": enemy_x,
-                                "enemy_y": enemy_y,
-                                "missile_x": missile.pos["x"],
-                                "missile_y": missile.pos["y"],
-                                "missile_angle": missile_angle,
-                                "dist": dist_missile_enemy,  # or 'dist_missile_enemy'
-                                "missile_collision": False,  # Will be updated at finalize
-                                "missile_action": missile_action,
-                                "timestamp": current_time,
-                                "dist_player_enemy": dist_player_enemy,
-                            }
-                        )
-                    # ----------------------
-
-                    # Collision with enemy
-                    if self.game.enemy:
-                        enemy_rect = pygame.Rect(
-                            self.game.enemy.pos["x"],
-                            self.game.enemy.pos["y"],
-                            self.game.enemy.size,
-                            self.game.enemy.size,
-                        )
-                        if missile.get_rect().colliderect(enemy_rect):
-                            logging.info("Missile hit the enemy (training mode).")
-                            self.finalize_missile_sequence(missile, success=True)
-                            self.game.player.missiles.remove(missile)
-                            del self.missile_lifespan[missile]
-
-                            self.game.enemy.hide()
-                            self.game.is_respawning = True
-                            self.game.respawn_timer = (
-                                current_time + self.game.respawn_delay
-                            )
-
-                            break  # only handle one collision per frame
-
-                    # Off-screen check
-                    if not (
-                        0 <= missile.pos["x"] <= self.game.screen_width
-                        and 0 <= missile.pos["y"] <= self.game.screen_height
-                    ):
-                        self.finalize_missile_sequence(missile, success=False)
-                        self.game.player.missiles.remove(missile)
-                        del self.missile_lifespan[missile]
-                        logging.debug("Training Mode: Missile left the screen.")
-
-        # 4) Respawn enemy if needed
-        if self.game.is_respawning and current_time >= self.game.respawn_timer:
-            if self.game.enemy:
-                self.game.handle_respawn(current_time)
-
-    def finalize_missile_sequence(self, missile, success: bool) -> None:
+    def _random_action(self):
         """
-        Called when a missile's life ends or collision occurs.
-        Logs each frame's data with a final 'missile_collision' outcome.
+        Generate a random (dx, dy). In real RL, you'd call a policy network.
         """
-        if missile not in self.missile_sequences:
-            return
-
-        outcome_val = success
-        frames = self.missile_sequences[missile]
-
-        for frame_data in frames:
-            frame_data["missile_collision"] = outcome_val
-            if self.game.data_logger:
-                self.game.data_logger.log(frame_data)
-
-        del self.missile_sequences[missile]
-        logging.debug(
-            f"Finalized missile sequence with success={success}, frames={len(frames)}"
-        )
+        speed = self.game.player.step if self.game.player else 5
+        # random direction
+        angle = random.uniform(0, 2.0 * 3.14159)
+        dx = speed * math.cos(angle)
+        dy = speed * math.sin(angle)
+        return dx, dy

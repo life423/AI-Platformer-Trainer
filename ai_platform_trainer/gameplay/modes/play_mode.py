@@ -1,45 +1,54 @@
-# ai_platform_trainer/gameplay/modes/play_mode.py
+# file: ai_platform_trainer/gameplay/modes/play_mode.py
 import logging
+import pygame
 
 
 class PlayModeManager:
+    """
+    Minimal bridging manager for 'play' mode:
+     - Reads user input, translates it to an 'action' (dx, dy).
+     - Calls env.step(action).
+     - Renders or logs as needed.
+    """
+
     def __init__(self, game):
-        self.game = game
+        self.game = game  # reference to the main Game object
 
-    def update(self, current_time: int) -> None:
-        if not self.game.player.handle_input():
-            logging.info("Player requested to quit. Exiting game.")
-            self.game.running = False
-            return
+    def update(self) -> None:
+        """
+        Called each frame from Game when in 'play' mode.
+        1) Build action from user input.
+        2) Call env.step(action).
+        3) If done, reset or handle game over logic.
+        """
+        # 1) Gather user input -> (dx, dy)
+        dx, dy = self._get_player_input()
 
-        try:
-            self.game.enemy.update_movement(
-                self.game.player.position["x"],
-                self.game.player.position["y"],
-                self.game.player.step,
-                current_time,
-            )
-            logging.debug("Enemy movement updated in play mode.")
-        except Exception as e:
-            logging.error(f"Error updating enemy movement: {e}")
-            self.game.running = False
-            return
+        # 2) Step environment
+        observation, reward, done, info = self.game.env.step((dx, dy))
 
-        if self.game.check_collision():
-            logging.info("Collision detected!")
-            self.game.enemy.hide()
-            self.game.is_respawning = True
-            self.game.respawn_timer = current_time + self.game.respawn_delay
-            logging.info(f"Enemy will respawn in {self.game.respawn_delay} ms.")
+        logging.debug(f"[PlayMode] obs={observation}, reward={reward}, done={done}")
 
-        self.game.handle_respawn(current_time)
-        if self.game.enemy.fading_in:
-            self.game.enemy.update_fade_in(current_time)
+        if done:
+            # Possibly show game-over menu or auto-reset
+            logging.info("Play mode: environment signaled 'done'. Resetting.")
+            self.game.env.reset(self.game.player, self.game.enemy)
 
-        enemy_pos = (
-            (self.game.enemy.pos["x"], self.game.enemy.pos["y"])
-            if self.game.enemy.visible
-            else (0, 0)
-        )
-        self.game.player.update_missiles(enemy_pos)
-        self.game.check_missile_collisions()
+    def _get_player_input(self):
+        """
+        Check key states to build an action (dx, dy).
+        """
+        keys = pygame.key.get_pressed()
+        speed = self.game.player.step if self.game.player else 5
+        dx = 0
+        dy = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx = -speed
+        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx = speed
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            dy = -speed
+        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            dy = speed
+
+        return dx, dy

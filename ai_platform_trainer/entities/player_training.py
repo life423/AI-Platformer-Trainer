@@ -35,9 +35,6 @@ class PlayerTraining:
         self.circle_radius = 100
         self.diagonal_direction = (1, 1)
 
-        # Remove wrap-around cooldown attributes altogether
-        # self.wrap_cooldown = 0
-        # self.wrap_cooldown_frames = 120
 
         # Velocity for smoother movement
         self.velocity = {"x": 0.0, "y": 0.0}
